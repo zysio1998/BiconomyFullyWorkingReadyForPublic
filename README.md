@@ -1,3 +1,8 @@
+git clone 
+cd into file
+yarn install
+yarn start
+
 To change this to suit a specific project
 
 1. Create a contract on remix and deploy it using the correct trsuted forwarder addresses
