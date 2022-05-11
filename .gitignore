@@ -1,6 +1,4 @@
 
 node_modules
-importantInfo.txt
-.env
 build
 /upload*to*Github
