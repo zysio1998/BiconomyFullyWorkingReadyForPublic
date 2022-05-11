@@ -2,6 +2,8 @@
 2. cd into file
 3. yarn install
 4. yarn start
+5. yarn build
+6. deploy on vercel or wherever
 
 To change this to suit a specific project
 
