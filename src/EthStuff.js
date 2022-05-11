@@ -7,7 +7,8 @@ import {networks} from "./networks"
 import Swal from 'sweetalert2'
 
 const CONTRACT_ADDRESS = "0x653d74cf90fDbd24b8B80cE87263080CED9cA306"; //kovan mainnet
-
+const { createAlchemyWeb3 } = require("@alch/alchemy-web3");
+const web3 = createAlchemyWeb3("https://eth-kovan.alchemyapi.io/v2/ADXYfZxHoqDZPB5sMp-LA4LlHnlavdN1"); 
 let ethersProvider, walletProvider, walletSigner
 let contract, contractInterface
 let biconomy
@@ -18,10 +19,10 @@ const App = () => {
   const [loading, setloading] = useState(false);
   const [network, setNetwork] = useState('')
 
-  const init = async () => {
-    if (typeof window.ethereum !== 'undefined' && window.ethereum.isMetaMask) {
-      // setInitLoading(0)
+  var passedTxnHash = ''
 
+  const init = async () => {
+    if (typeof window.ethereum !== 'undefined' && window.ethereum.isMetaMask) {  
       biconomy = new Biconomy(new ethers.providers.JsonRpcProvider("https://eth-kovan.alchemyapi.io/v2/ADXYfZxHoqDZPB5sMp-LA4LlHnlavdN1"), {
         walletProvider: window.ethereum, 
         apiKey: '8FBNI6KMg.2d9fe647-e047-4088-a811-aee29e99cb25',
@@ -73,10 +74,7 @@ const App = () => {
     if (accounts.length !== 0) {
       const account = accounts[0];
       console.log("Found an authorized account:", account);
-      setCurrentAccount(account)
-      //switchNetwork()
-     
-      // setupEventListener()
+      setCurrentAccount(account)      
     } else {
       console.log("No authorized account found")
     }
@@ -84,7 +82,6 @@ const App = () => {
     // This is the new part, we check the user's network chain ID
     const chainId = await ethereum.request({ method: 'eth_chainId' })
     setNetwork(networks[chainId])
-
     ethereum.on('chainChanged', handleChainChanged)
 
     function handleChainChanged(_chainId) {
@@ -101,59 +98,11 @@ const App = () => {
       }
       const accounts = await ethereum.request({ method: "eth_requestAccounts" });
       console.log("Connected", accounts[0]);
-      setCurrentAccount(accounts[0]);
-
-      //switchNetwork()
-      // setupEventListener()
+      setCurrentAccount(accounts[0]);      
     } catch (error) {
       console.log(error)
     }
-  }
-
-  /*const switchNetwork = async () => {
-    if (window.ethereum) {
-      try {
-        // Try to switch to the  testnet
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0x89' }], // Check networks.js for hexadecimal network ids
-        })
-      } catch (error) {
-        // This error code means that the chain we want has not been added to MetaMask
-        // In this case we ask the user to add it to their MetaMask
-        if (error.code === 4902) {
-          try {
-            await window.ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [
-                {
-                  chainId: '0x89',
-                  chainName: 'Polygon Mainnet',
-                  rpcUrls: [
-                    'https://polygon-rpc.com',
-                  ],
-                  nativeCurrency: {
-                    name: 'MATIC',
-                    symbol: 'MATIC',
-                    decimals: 18,
-                  },
-                  blockExplorerUrls: ['https://polygonscan.com/'],
-                },
-              ],
-            })
-          } catch (error) {
-            console.log(error)
-          }
-        }
-        console.log(error)
-      }
-    } else {
-      // If window.ethereum is not found then MetaMask is not installed
-      alert(
-        'MetaMask is not installed. Please install it to use this app: https://metamask.io/download.html'
-      )
-    }
-  }*/
+  }  
 
   const askContractToMintNft = async () => {
     try {
@@ -166,6 +115,12 @@ const App = () => {
         console.log(biconomy)
           let provider = biconomy.getEthersProvider();
           let { data } = await contract.populateTransaction.mintNFT();
+          const myHash = data
+          const glass = () => {   //used to pass it as a global variabe for the catch to display the revert reason       
+            passedTxnHash = myHash  
+            return passedTxnHash          
+          }
+          glass()
           let gasLimit = await provider.estimateGas({
             to: CONTRACT_ADDRESS,
             from: userAddress,
@@ -187,13 +142,20 @@ const App = () => {
             tx = await provider.send("eth_sendTransaction", [txParams])
           }
           catch (err) {
-            console.log("handle errors like signature denied here");
-            console.log(err);
-
-            Swal.fire({
-              icon: 'error',
-              title: 'Minting Failed, try again in a moment',                           
-            })
+            if(err.message == "MetaMask Message Signature: User denied message signature."){
+              Swal.fire({
+                icon: 'error',
+                title: 'Minting Failed',
+                text: 'Minting failed, you rejected the transaction, try again',         
+              }) 
+              setloading(false) 
+              return 0;
+            }else{
+              Swal.fire({
+                icon: 'error',
+                title: 'Minting Failed, try again in a moment',                           
+              })
+            }      
           }         
           console.log("Transaction hash : ", tx);
           provider.once(tx, (transaction) => {
@@ -235,36 +197,49 @@ const App = () => {
     } catch (error) {
       setloading(false)
 
-      Swal.fire({
-        icon: 'error',
-        title: 'Minting Failed, try again in a moment' ,   
-        text: 'Remember, you can only mint 1 NFT',                        
-      })
-
-      /*if(error.data.message == "execution reverted: Invalid Merkle Proof."){
-      Swal.fire({
-        icon: 'error',
-        title: 'Minting Failed',
-        text: 'You are not in whitelist ',
-       
-      })
-      
-    }else if(error.data.message == "execution reverted: Address already claimed"){
-      Swal.fire({
-        icon: 'error',
-        title: 'Minting Failed',
-        text: 'You are already claimed',
-       
-      })
-    }else{
-      Swal.fire({
-        icon: 'error',
-        title: 'Minting Failed',
-        text: error.data.message,
-       
-      })
-
-    }*/
+      //sending an eth call to get the revert reason
+      let replay_tx = {
+        to: CONTRACT_ADDRESS,
+        from: currentAccount,        
+        data: passedTxnHash,
+      }      
+        
+      try{
+        const pullCall = await web3.eth.call(replay_tx)
+        console.log("Working ok", pullCall)
+      }catch (error){        
+        console.log("my own error" ,error.data) 
+        var revertReason = error.data;   
+        if(revertReason == "Reverted 0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001d4f6e6c792031204e465420616c6c6f776564207065722077616c6c6574000000"){
+          Swal.fire({
+            icon: 'error',
+            title: 'Minting Failed',
+            text: 'Cannot mint more than 1 NFT',
+           
+          })          
+        }else if(revertReason == "Reverted 0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001d7075626c69632073616c6520686173206e6f7420626567756e20796574000000"){
+          Swal.fire({
+            icon: 'error',
+            title: 'Minting Failed',
+            text: 'Sale has not begun yet',
+           
+          })
+        }else if(revertReason == "Reverted 0x08c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000154e6f7420656e6f756768204e465473206c656674210000000000000000000000"){
+          Swal.fire({
+            icon: 'error',
+            title: 'Minting Failed',
+            text: 'All the NFTs are sold out',
+           
+          })
+        }else{
+          Swal.fire({
+            icon: 'error',
+            title: 'Minting Failed',
+            text: 'Please try again',
+           
+          })   
+        }       
+      }      
       console.log(error)
     }
   }
@@ -275,11 +250,11 @@ const App = () => {
       setloading(true)
     }
 
-    if (currentAccount !== '' /*&& network === 'Polygon Mainnet'*/) {
+    if (currentAccount !== '') {
       console.log('init')
       init()
     }
-  }, [currentAccount/*, network*/])
+  }, [currentAccount])
 
 
   const renderNotConnectedContainer = () => (
