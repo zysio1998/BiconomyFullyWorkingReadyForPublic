@@ -1,7 +1,7 @@
-git clone 
-cd into file
-yarn install
-yarn start
+1. git clone 
+2. cd into file
+3. yarn install
+4. yarn start
 
 To change this to suit a specific project
 
